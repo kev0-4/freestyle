@@ -4,7 +4,7 @@ import {
   keyDisplayLabel,
   useHotkeyRecorder,
 } from "@renderer/hooks/use-hotkey-recorder";
-import { getApiBase } from "@renderer/lib/api";
+import { getClient } from "@renderer/lib/api";
 import { cn } from "@renderer/lib/utils";
 import {
   Download,
@@ -99,17 +99,19 @@ export default function GeneralSettingsPage(): React.JSX.Element {
   const [language, setLanguage] = useState("auto");
   const [pillPosition, setPillPosition] = useState("bottom-center");
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [transcriptionPrompt, setTranscriptionPrompt] = useState("");
   const [updateAvailable, setUpdateAvailable] = useState<string | null>(null);
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   const handleHotkeyRecorded = useCallback((accelerator: string) => {
     setHotkey(accelerator);
-    fetch(`${getApiBase()}/api/settings/hotkey`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ value: accelerator }),
-    }).catch(() => {});
+    getClient()
+      .api.settings[":key"].$put({
+        param: { key: "hotkey" },
+        json: { value: accelerator },
+      })
+      .catch(() => {});
     window.api.updateHotkey(accelerator);
   }, []);
 
@@ -146,19 +148,22 @@ export default function GeneralSettingsPage(): React.JSX.Element {
 
   // Load saved settings from server
   useEffect(() => {
-    fetch(`${getApiBase()}/api/settings/mic_device_id`)
+    getClient()
+      .api.settings[":key"].$get({ param: { key: "mic_device_id" } })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.value) setSelectedDevice(data.value);
       })
       .catch(() => {});
-    fetch(`${getApiBase()}/api/settings/hotkey`)
+    getClient()
+      .api.settings[":key"].$get({ param: { key: "hotkey" } })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.value) setHotkey(data.value);
       })
       .catch(() => {});
-    fetch(`${getApiBase()}/api/settings/language`)
+    getClient()
+      .api.settings[":key"].$get({ param: { key: "language" } })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.value) setLanguage(data.value);
@@ -168,10 +173,18 @@ export default function GeneralSettingsPage(): React.JSX.Element {
       ?.getPillPosition()
       .then(setPillPosition)
       .catch(() => {});
-    fetch(`${getApiBase()}/api/settings/sound_enabled`)
+    getClient()
+      .api.settings[":key"].$get({ param: { key: "sound_enabled" } })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.value === "false") setSoundEnabled(false);
+      })
+      .catch(() => {});
+    getClient()
+      .api.settings[":key"].$get({ param: { key: "transcription_prompt" } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.value) setTranscriptionPrompt(data.value);
       })
       .catch(() => {});
 
@@ -198,32 +211,32 @@ export default function GeneralSettingsPage(): React.JSX.Element {
 
   const handleDeviceChange = useCallback((deviceId: string) => {
     setSelectedDevice(deviceId);
-    fetch(`${getApiBase()}/api/settings/mic_device_id`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ value: deviceId }),
-    }).catch(() => {});
+    getClient()
+      .api.settings[":key"].$put({
+        param: { key: "mic_device_id" },
+        json: { value: deviceId },
+      })
+      .catch(() => {});
   }, []);
 
   const handleThemeChange = useCallback(
     (value: string) => {
       setTheme(value);
-      fetch(`${getApiBase()}/api/settings/theme`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ value }),
-      }).catch(() => {});
+      getClient()
+        .api.settings[":key"].$put({ param: { key: "theme" }, json: { value } })
+        .catch(() => {});
     },
     [setTheme],
   );
 
   const handleLanguageChange = useCallback((value: string) => {
     setLanguage(value);
-    fetch(`${getApiBase()}/api/settings/language`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ value }),
-    }).catch(() => {});
+    getClient()
+      .api.settings[":key"].$put({
+        param: { key: "language" },
+        json: { value },
+      })
+      .catch(() => {});
   }, []);
 
   const handlePillPositionChange = useCallback((value: string) => {
@@ -233,11 +246,12 @@ export default function GeneralSettingsPage(): React.JSX.Element {
 
   const handleSoundToggle = useCallback((enabled: boolean) => {
     setSoundEnabled(enabled);
-    fetch(`${getApiBase()}/api/settings/sound_enabled`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ value: String(enabled) }),
-    }).catch(() => {});
+    getClient()
+      .api.settings[":key"].$put({
+        param: { key: "sound_enabled" },
+        json: { value: String(enabled) },
+      })
+      .catch(() => {});
   }, []);
 
   // Build display keys for current recorder state
@@ -254,6 +268,41 @@ export default function GeneralSettingsPage(): React.JSX.Element {
           Configure how Freestyle listens, speaks, and looks.
         </p>
       </div>
+
+      {/* ── Updates ────────────────────────────────────────────── */}
+      {updateAvailable && (
+        <div className="border-primary/30 bg-primary/5 flex items-center justify-between rounded-lg border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Download className="text-primary h-4 w-4" />
+            <span className="text-sm">
+              {updateDownloaded
+                ? `Version ${updateAvailable} ready to install`
+                : `Version ${updateAvailable} available`}
+            </span>
+          </div>
+          {updateDownloaded ? (
+            <button
+              type="button"
+              onClick={() => window.api?.installUpdate()}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-3 py-1 text-xs font-medium"
+            >
+              Restart & Update
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setDownloading(true);
+                window.api?.downloadUpdate();
+              }}
+              disabled={downloading}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-3 py-1 text-xs font-medium disabled:opacity-50"
+            >
+              {downloading ? "Downloading..." : "Download"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Recording ─────────────────────────────────────────── */}
       <div className="space-y-5">
@@ -383,6 +432,32 @@ export default function GeneralSettingsPage(): React.JSX.Element {
           </div>
         </div>
 
+        {/* Transcription prompt hint */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Transcription Prompt</label>
+          <p className="text-muted-foreground text-xs">
+            Hint for the speech model — list domain terms, names, or jargon to
+            improve accuracy.
+          </p>
+          <input
+            type="text"
+            value={transcriptionPrompt}
+            onChange={(e) => {
+              setTranscriptionPrompt(e.target.value);
+            }}
+            onBlur={() => {
+              getClient()
+                .api.settings[":key"].$put({
+                  param: { key: "transcription_prompt" },
+                  json: { value: transcriptionPrompt },
+                })
+                .catch(() => {});
+            }}
+            placeholder="e.g. TypeScript, React, Kubernetes, JIRA..."
+            className="border-border bg-card text-foreground w-full rounded-lg border px-3 py-2 text-sm"
+          />
+        </div>
+
         {/* Sound toggle - inline row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -470,46 +545,6 @@ export default function GeneralSettingsPage(): React.JSX.Element {
           </div>
         </div>
       </div>
-
-      {/* ── Updates ────────────────────────────────────────────── */}
-      {updateAvailable && (
-        <div className="space-y-5">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Updates
-          </h2>
-          <div className="border-primary/30 bg-primary/5 flex items-center justify-between rounded-lg border px-4 py-3">
-            <div className="flex items-center gap-2">
-              <Download className="text-primary h-4 w-4" />
-              <span className="text-sm">
-                {updateDownloaded
-                  ? `Version ${updateAvailable} ready to install`
-                  : `Version ${updateAvailable} available`}
-              </span>
-            </div>
-            {updateDownloaded ? (
-              <button
-                type="button"
-                onClick={() => window.api?.installUpdate()}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-3 py-1 text-xs font-medium"
-              >
-                Restart & Update
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setDownloading(true);
-                  window.api?.downloadUpdate();
-                }}
-                disabled={downloading}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-3 py-1 text-xs font-medium disabled:opacity-50"
-              >
-                {downloading ? "Downloading..." : "Download"}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ declare global {
       requestMicPermission: () => Promise<string>;
       checkAccessibilityPermission: () => Promise<boolean>;
       openAccessibilitySettings: () => void;
+      openMicSettings: () => void;
       getOnboardingComplete: () => Promise<boolean>;
       setOnboardingComplete: () => void;
       startHotkeyRecording: () => void;
@@ -50,6 +51,10 @@ declare global {
       // Transcription completion broadcast
       sendTranscriptionDone: () => void;
       onTranscriptionDone: (callback: () => void) => () => void;
+      // Fullscreen state
+      onFullscreenChanged: (
+        callback: (isFullscreen: boolean) => void,
+      ) => () => void;
     };
   }
 }
