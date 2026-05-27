@@ -207,8 +207,25 @@ const stream = new Hono().get(
       },
 
       onMessage(event, ws) {
-        if (event.data instanceof ArrayBuffer) {
-          upstream?.sendAudio(event.data);
+        const data = event.data;
+        const isBinary =
+          data instanceof ArrayBuffer ||
+          ArrayBuffer.isView(data) ||
+          (typeof Buffer !== "undefined" && Buffer.isBuffer(data));
+        if (isBinary) {
+          const buf =
+            data instanceof ArrayBuffer
+              ? data
+              : ArrayBuffer.isView(data)
+                ? (data.buffer.slice(
+                    data.byteOffset,
+                    data.byteOffset + data.byteLength,
+                  ) as ArrayBuffer)
+                : ((data as Buffer).buffer.slice(
+                    (data as Buffer).byteOffset,
+                    (data as Buffer).byteOffset + (data as Buffer).byteLength,
+                  ) as ArrayBuffer);
+          upstream?.sendAudio(buf);
           return;
         }
 

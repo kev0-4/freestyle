@@ -44,7 +44,10 @@ export class ElevenLabsTranscriptionProvider implements TranscriptionProvider {
   readonly providerId = "elevenlabs";
 
   async transcribe(opts: TranscribeOptions): Promise<TranscribeResult> {
-    return transcribeWithAiSdk(opts, createElevenLabs);
+    const model = stripProviderPrefix(opts.model).endsWith("_realtime")
+      ? opts.model.replace(/_realtime$/, "")
+      : opts.model;
+    return transcribeWithAiSdk({ ...opts, model }, createElevenLabs);
   }
 
   supportsStreaming(_modelId: string): boolean {
@@ -110,7 +113,11 @@ export class ElevenLabsTranscriptionProvider implements TranscriptionProvider {
             case "auth_error":
             case "quota_exceeded":
             case "rate_limited":
+            case "commit_throttled":
             case "transcriber_error":
+            case "input_error":
+            case "chunk_size_exceeded":
+            case "insufficient_audio_activity":
               callbacks.onError(msg.error ?? "ElevenLabs error");
               return;
           }
