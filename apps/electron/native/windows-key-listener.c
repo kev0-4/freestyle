@@ -318,11 +318,17 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     printf("KEY_DOWN\n");
                     fflush(stdout);
                 }
+                /* Suppress the key event globally so Windows doesn't process it.
+                   This fires on both the initial press and held-key repeats.
+                   Intentional for Alt+Space (prevents system window menu); note that
+                   changing the hotkey to something other apps rely on would also suppress it. */
+                if (g_isKeyDown) return 1;
             } else if (isUp) {
                 if (g_isKeyDown) {
                     g_isKeyDown = FALSE;
                     printf("KEY_UP\n");
                     fflush(stdout);
+                    return 1;
                 }
             }
         }
