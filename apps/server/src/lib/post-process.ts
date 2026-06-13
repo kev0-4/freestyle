@@ -213,13 +213,12 @@ IMPORTANT: Your entire response must be the cleaned text and nothing else. No qu
       for (const { id, key, value } of dictRows) {
         const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const regex = new RegExp(`\\b${escaped}\\b`, "gi");
-        if (regex.test(cleanedText)) {
-          matchedIds.push(id);
-          cleanedText = cleanedText.replace(
-            new RegExp(`\\b${escaped}\\b`, "gi"),
-            value,
-          );
-        }
+        let matched = false;
+        cleanedText = cleanedText.replace(regex, () => {
+          matched = true;
+          return value;
+        });
+        if (matched) matchedIds.push(id);
       }
       if (matchedIds.length > 0) {
         const updateStmt = db.prepare(
