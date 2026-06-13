@@ -40,6 +40,7 @@ function getContextHint(
 
   const matchStr = buildMatchContext(rawContext);
   if (!matchStr) return "";
+  const matchStrLower = matchStr.toLowerCase();
 
   try {
     const rows = db
@@ -51,7 +52,7 @@ function getContextHint(
     for (const row of rows) {
       const patterns = row.app_pattern.split("|").map((p) => p.trim());
       for (const pattern of patterns) {
-        if (pattern && matchStr.toLowerCase().includes(pattern.toLowerCase())) {
+        if (pattern && matchStrLower.includes(pattern.toLowerCase())) {
           return row.instructions;
         }
       }
